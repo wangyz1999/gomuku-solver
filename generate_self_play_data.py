@@ -4,8 +4,13 @@ import multiprocessing as mp
 from solver import GomokuSolver
 
 
-def generate_data_worker(engine_path, worker_id, num_games, max_steps, output_file, visualize=False):
-    solver = GomokuSolver(engine_path)
+def generate_data_worker(engine_path, worker_id, num_games, max_steps, output_file, max_memory_mb=50, timeout_match_ms=180000, timeout_turn_ms=5000, visualize=False):
+    solver = GomokuSolver(
+        engine_path,
+        max_memory_mb=max_memory_mb,
+        timeout_match_ms=timeout_match_ms,
+        timeout_turn_ms=timeout_turn_ms
+    )
     current_step = 0
     
     # Open file in append mode
@@ -41,7 +46,7 @@ def generate_data_worker(engine_path, worker_id, num_games, max_steps, output_fi
                 if winner or current_step >= max_steps:
                     break
 
-def generate_self_play_data(engine_path, num_games=10, max_steps=100, visualize=False, num_processes=1, output_file="gomoku_data.tsv", **kwargs):
+def generate_self_play_data(engine_path, num_games=10, max_steps=100, visualize=False, num_processes=1, output_file="gomoku_data.tsv", max_memory_mb=50, timeout_match_ms=180000, timeout_turn_ms=5000, **kwargs):
     # Create output file with headers if it doesn't exist
     if not os.path.exists(output_file):
         with open(output_file, 'w', newline='') as f:
@@ -60,7 +65,7 @@ def generate_self_play_data(engine_path, num_games=10, max_steps=100, visualize=
             if process_games > 0:
                 p = mp.Process(
                     target=generate_data_worker,
-                    args=(engine_path, i, process_games, max_steps, output_file, visualize)
+                    args=(engine_path, i, process_games, max_steps, output_file, max_memory_mb, timeout_match_ms, timeout_turn_ms, visualize)
                 )
                 processes.append(p)
                 p.start()
@@ -70,7 +75,7 @@ def generate_self_play_data(engine_path, num_games=10, max_steps=100, visualize=
             p.join()
     else:
         # Single process mode
-        generate_data_worker(engine_path, 0, num_games, max_steps, output_file, visualize)
+        generate_data_worker(engine_path, 0, num_games, max_steps, output_file, max_memory_mb, timeout_match_ms, timeout_turn_ms, visualize)
 
 
 if __name__ == "__main__":
@@ -83,7 +88,7 @@ if __name__ == "__main__":
         "timeout_match_ms": 50000000,
         "timeout_turn_ms": 60000,  # 60 seconds maximum allowed for each move
         "num_games": 1000000000,  # num_games or max_steps, whichever reaches first, here we set num_games arbitrarily high and uses max_steps 
-        "max_steps": 10000,
+        "max_steps": 100000,
         "num_processes": 24,
         "output_file": "gomoku_data.tsv",
     }
@@ -94,5 +99,8 @@ if __name__ == "__main__":
         max_steps=settings["max_steps"], 
         num_processes=settings["num_processes"],  
         output_file=settings["output_file"],
+        max_memory_mb=settings["max_memory_mb_per_process"],
+        timeout_match_ms=settings["timeout_match_ms"],
+        timeout_turn_ms=settings["timeout_turn_ms"],
         visualize=False
     )
