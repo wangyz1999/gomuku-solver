@@ -1,0 +1,13 @@
+# game states are separated by one empty line
+# Every line is in the form:
+# [X],[Y],[field]
+# where [X] and [Y] are coordinates and [field] is either number 1 (own stone) or number 2 (opponent's stone)
+# The new move given the board always has field 1
+7,7,2
+7,8,1
+4,7,2
+
+7,7,1
+7,8,2
+4,7,1
+6,6,2
