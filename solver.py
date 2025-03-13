@@ -1,13 +1,8 @@
 import subprocess
-import threading
-import queue
-import os
-import select
-import sys
 import re
 
 
-class GomokuDataGenerator:
+class GomokuSolver:
     def __init__(self, engine_path, board_size=15, max_memory_mb=50, timeout_match_ms=180000, timeout_turn_ms=5000):
         self.engine_process = subprocess.Popen(
             engine_path,
@@ -83,27 +78,6 @@ class GomokuDataGenerator:
             
         return opening_states
 
-    def generate_self_play_data(self, num_games=10, max_steps=100):
-        current_step = 0
-        for i in range(num_games):
-            current_board_state = []
-            while True:
-                parsed_response, raw_output_str = self.get_best_move(current_board_state)
-                current_board_state = parsed_response["new_board_state"]
-                current_board_state = self.switch_board_side(current_board_state)
-                self.visualize_board(current_board_state)
-                print(parsed_response["best_move"])
-                print(parsed_response["evaluation"])
-                winner = self.check_winner(current_board_state)
-                current_step += 1
-                if winner:
-                    print(f"Winner: {winner}")
-                    break
-                if current_step >= max_steps:
-                    print(f"Game {i} ended in {current_step} steps")
-                    break
-                
-                
     def generate_data_from_openings_file(self, openings_file, max_steps=100):
         """
         Parse an openings file and generate game data from each starting position.
@@ -224,7 +198,7 @@ class GomokuDataGenerator:
                 
         return count >= 5
     
-    def visualize_board(self, board_state):
+    def visualize_board(self, board_state, player1_symbol="X", player2_symbol="O"):
         """
         Visualize the current board state using ASCII art.
         
@@ -237,7 +211,7 @@ class GomokuDataGenerator:
         # Fill in the board with player moves
         for x, y, player in board_state:
             if 0 <= x < self.board_size and 0 <= y < self.board_size:
-                board[y][x] = 'X' if player == 1 else 'O'
+                board[y][x] = player1_symbol if player == 1 else player2_symbol
         
         # Print column numbers
         print('  ', end='')
@@ -262,10 +236,10 @@ class GomokuDataGenerator:
                 print('  └' + '───┴' * (self.board_size - 1) + '───┘')
 
 if __name__ == "__main__":
-    generator = GomokuDataGenerator(r"engines\EMBRYO21.E\pbrain-embryo21_e.exe")
+    generator = GomokuSolver(r"engines\EMBRYO21.E\pbrain-embryo21_e.exe")
     # generator.generate_data_from_openings_file(r"openings.txt")
     generator.generate_self_play_data()
     
     
-    # generator = GomokuDataGenerator(r"engines\EMBRYO21.E\pbrain-embryo21_e.exe")
+    # generator = GomokuSolver(r"engines\EMBRYO21.E\pbrain-embryo21_e.exe")
     # print(generator.check_winner([(7, 7, 1), (6, 7, 2), (8, 6, 1), (6, 8, 2), (7, 5, 1), (7, 8, 2), (9, 7, 1), (6, 4, 2), (8,8,1),(9,9,1), (10,10,1), (11,11,1)]))

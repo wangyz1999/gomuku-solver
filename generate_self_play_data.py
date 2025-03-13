@@ -1,10 +1,11 @@
 import os
 import csv
 import multiprocessing as mp
-from solver import GomokuDataGenerator
+from solver import GomokuSolver
+
 
 def generate_data_worker(engine_path, worker_id, num_games, max_steps, output_file, visualize=False):
-    solver = GomokuDataGenerator(engine_path)
+    solver = GomokuSolver(engine_path)
     current_step = 0
     
     # Open file in append mode
@@ -78,9 +79,9 @@ if __name__ == "__main__":
     # Create settings dictionary
     settings = {
         "board_size": 15,
-        "max_memory_mb_per_process": 50,
-        "timeout_match_ms": 180000,
-        "timeout_turn_ms": 8000,  # 8 seconds maximum allowed for each move
+        "max_memory_mb_per_process": 80,
+        "timeout_match_ms": 50000000,
+        "timeout_turn_ms": 60000,  # 60 seconds maximum allowed for each move
         "num_games": 1000000000,  # num_games or max_steps, whichever reaches first, here we set num_games arbitrarily high and uses max_steps 
         "max_steps": 10000,
         "num_processes": 24,
