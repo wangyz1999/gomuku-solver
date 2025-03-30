@@ -77,22 +77,27 @@ def board_to_hash(board):
     """Convert a board array to a string representation for hashing."""
     return ''.join(str(int(cell)) for cell in board.flatten())
 
-def convert_to_dataset(input_file, output_file, confidence_threshold=8):
+def filter_positions(input_file, confidence_threshold=8):
     """
-    Convert the TSV file to a clean dataset with isomorphism handling.
+    Filter positions based on confidence and isomorphism.
     
     Args:
         input_file: Path to the input TSV file
-        output_file: Path to the output JSON file
         confidence_threshold: Only keep moves with this count or higher
+        
+    Returns:
+        filtered_positions: List of tuples (board_array, best_move)
+        stats: Dictionary with statistics about the filtering process
     """
-    dataset = []
+    filtered_positions = []
     seen_positions = set()
     
     # Statistics counters
-    total_positions = 0
-    positions_after_confidence_filter = 0
-    positions_after_isomorphism_filter = 0
+    stats = {
+        "total_positions": 0,
+        "positions_after_confidence_filter": 0,
+        "positions_after_isomorphism_filter": 0
+    }
     
     with open(input_file, 'r', newline='') as f:
         reader = csv.reader(f, delimiter='\t')
@@ -100,9 +105,9 @@ def convert_to_dataset(input_file, output_file, confidence_threshold=8):
         
         # Count total rows first
         rows = list(reader)
-        total_positions = len(rows)
+        stats["total_positions"] = len(rows)
         
-        for row in tqdm(rows, desc="Processing positions"):
+        for row in tqdm(rows, desc="Filtering positions"):
             board_state_str = row[0]
             best_move_str = row[1]
             candidate_moves_str = row[4]
@@ -116,7 +121,7 @@ def convert_to_dataset(input_file, output_file, confidence_threshold=8):
             
             # Only keep positions where the best move has high confidence
             if best_move_key in candidate_moves and candidate_moves[best_move_key]["count"] >= confidence_threshold:
-                positions_after_confidence_filter += 1
+                stats["positions_after_confidence_filter"] += 1
                 
                 # Convert board state to array
                 board = board_state_to_array(board_state_str)
@@ -133,32 +138,66 @@ def convert_to_dataset(input_file, output_file, confidence_threshold=8):
                         break
                 
                 if is_new_position:
-                    positions_after_isomorphism_filter += 1
+                    stats["positions_after_isomorphism_filter"] += 1
                     
-                    # Add the canonical version to the dataset
+                    # Add the canonical version to the filtered positions
                     board_hash = board_to_hash(board)
                     seen_positions.add(board_hash)
                     
-                    # Create string representation of the board
-                    board_str = board_to_string_representation(board)
-                    
-                    # Format the move as a string (e.g., "C4")
-                    move_str = f"({best_move[0]}, {best_move[1]})"
-                    
-                    # Create the prompt and ground truth
-                    prompt = f"Here is a Gomoku board game state, find the best next move:\n\n{board_str}"
-                    ground_truth = move_str
-                    
-                    dataset.append({
-                        "prompt": prompt,
-                        "ground_truth": ground_truth
-                    })
+                    filtered_positions.append((board, best_move))
+    
+    return filtered_positions, stats
+
+def format_dataset(filtered_positions):
+    """
+    Format filtered positions into the final dataset format.
+    
+    Args:
+        filtered_positions: List of tuples (board_array, best_move)
+        
+    Returns:
+        dataset: List of dictionaries with prompt and ground_truth
+    """
+    dataset = []
+    
+    for board, best_move in tqdm(filtered_positions, desc="Formatting dataset"):
+        # Create string representation of the board
+        board_str = board_to_string_representation(board)
+        
+        # Format the move as a string
+        move_str = f"({best_move[0]}, {best_move[1]})"
+        
+        # Create the prompt and ground truth
+        prompt = f"Here is a Gomoku board game state, find the best next move:\n\n{board_str}"
+        ground_truth = move_str
+        
+        dataset.append({
+            "prompt": prompt,
+            "ground_truth": ground_truth
+        })
+    
+    return dataset
+
+def convert_to_dataset(input_file, output_file, confidence_threshold=8):
+    """
+    Convert the TSV file to a clean dataset with isomorphism handling.
+    
+    Args:
+        input_file: Path to the input TSV file
+        output_file: Path to the output JSON file
+        confidence_threshold: Only keep moves with this count or higher
+    """
+    # Step 1: Filter positions
+    filtered_positions, stats = filter_positions(input_file, confidence_threshold)
+    
+    # Step 2: Format the dataset
+    dataset = format_dataset(filtered_positions)
     
     # Print statistics
     print("\nDataset Statistics:")
-    print(f"Total positions in input file: {total_positions}")
-    print(f"Positions after confidence filter (count >= {confidence_threshold}): {positions_after_confidence_filter} ({positions_after_confidence_filter/total_positions*100:.2f}%)")
-    print(f"Positions after isomorphism filter: {positions_after_isomorphism_filter} ({positions_after_isomorphism_filter/positions_after_confidence_filter*100:.2f}% of confident positions)")
+    print(f"Total positions in input file: {stats['total_positions']}")
+    print(f"Positions after confidence filter (count >= {confidence_threshold}): {stats['positions_after_confidence_filter']} ({stats['positions_after_confidence_filter']/stats['total_positions']*100:.2f}%)")
+    print(f"Positions after isomorphism filter: {stats['positions_after_isomorphism_filter']} ({stats['positions_after_isomorphism_filter']/stats['positions_after_confidence_filter']*100:.2f}% of confident positions)")
     print(f"Final dataset size: {len(dataset)}")
     
     # Save to JSON
@@ -170,7 +209,7 @@ def convert_to_dataset(input_file, output_file, confidence_threshold=8):
 if __name__ == "__main__":
     # Settings
     input_file = "gomoku_data_repeat8.tsv"
-    output_file = "gomoku_dataset.json"
+    output_file = "gomoku_dataset_repeat8.json"
     confidence_threshold = 8  # Only keep moves with this count or higher
     
     print(f"Processing {input_file} with confidence threshold {confidence_threshold}")
